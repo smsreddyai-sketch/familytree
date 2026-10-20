@@ -6,7 +6,7 @@ import PersonCard from '@/components/PersonCard';
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 1.5;
 
-const TreeView = forwardRef(function TreeView({ layout, onSelect }, treeRef) {
+const TreeView = forwardRef(function TreeView({ layout, onSelect, onDelete }, treeRef) {
   const scrollRef = useRef(null);
   const [zoom, setZoom] = useState(1);
 
@@ -64,7 +64,7 @@ const TreeView = forwardRef(function TreeView({ layout, onSelect }, treeRef) {
               ))}
             </svg>
             {layout.nodes.map(n => (
-              <PersonCard key={n.key} person={n.person} x={n.x} y={n.y} duplicate={n.duplicate} onClick={() => onSelect(n.person.id)} />
+              <PersonCard key={n.key} person={n.person} x={n.x} y={n.y} duplicate={n.duplicate} onClick={() => onSelect(n.person.id)} onDelete={onDelete && (() => onDelete(n.person))} />
             ))}
           </div>
         </div>

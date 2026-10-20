@@ -42,6 +42,20 @@ export default function TreeApp({ me, onLoggedOut }) {
     onLoggedOut();
   };
 
+  const deletePerson = async (person) => {
+    const myUnionIds = tree.unions.filter(u => u.partnerIds.includes(person.id)).map(u => u.id);
+    const childCount = tree.people.filter(p => myUnionIds.includes(p.parentUnionId)).length;
+    const warn = childCount ? `\n\n${childCount} child(ren) will stay in the tree, linked to the other parent.` : '';
+    if (!window.confirm(`Delete ${person.name} and their photo from the tree?${warn}\n\nThis cannot be undone.`)) return;
+    try {
+      await api(`/api/people/${person.id}`, { method: 'DELETE' });
+      if (selectedId === person.id) setSelectedId(null);
+      load();
+    } catch (err) {
+      alert(`Could not delete ${person.name}: ${err.message}`);
+    }
+  };
+
   const downloadPdf = async () => {
     setExporting(true);
     try {
@@ -93,8 +107,8 @@ export default function TreeApp({ me, onLoggedOut }) {
         </div>
       ) : (
         <>
-          <p className="text-xs text-slate-500">Click a person to see details{canEdit ? ', add family or edit' : ''}. ♥ married · ✕ divorced / separated</p>
-          <TreeView ref={treeRef} layout={layout} onSelect={setSelectedId} />
+          <p className="text-xs text-slate-500">Click a person to see details{canEdit ? ', add family or edit (🗑 on a card deletes that person)' : ''}. ♥ married · ✕ divorced / separated</p>
+          <TreeView ref={treeRef} layout={layout} onSelect={setSelectedId} onDelete={canEdit ? deletePerson : undefined} />
         </>
       )}
 
