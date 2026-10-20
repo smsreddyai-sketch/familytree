@@ -58,7 +58,6 @@ export default function AdminForm({ onMemberAdded }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim()) return setMessage({ type: 'error', text: 'Name is required.' });
-    if (!password) return setMessage({ type: 'error', text: 'Enter the family password.' });
     setLoading(true);
     setMessage(null);
 
@@ -128,7 +127,7 @@ export default function AdminForm({ onMemberAdded }) {
         {previewUrl && <img src={previewUrl} alt="Preview" className="w-12 h-12 rounded-full object-cover border" />}
       </div>
 
-      <input type="password" placeholder="Family Password *" autoComplete="current-password" className="p-2.5 border rounded-xl text-sm w-full" value={password} onChange={e => setPassword(e.target.value)} />
+      <input type="password" placeholder="Family Password (if set)" autoComplete="current-password" className="p-2.5 border rounded-xl text-sm w-full" value={password} onChange={e => setPassword(e.target.value)} />
 
       {message && (
         <p className={`text-sm rounded-xl px-3 py-2 ${message.type === 'error' ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>
