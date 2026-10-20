@@ -1,7 +1,7 @@
 import { del } from '@vercel/blob';
 import { NextResponse } from 'next/server';
 import { KEYS, getOne, getTree, redis } from '@/lib/db';
-import { requireRole } from '@/lib/auth';
+import { editCheck, outsideBranch, requireRole } from '@/lib/auth';
 import { isBlobUrl, personFields } from '@/lib/validate';
 
 async function deletePhoto(url) {
@@ -15,11 +15,12 @@ async function deletePhoto(url) {
 
 export async function PATCH(request, { params }) {
   try {
-    const { treeId, error } = await requireRole(request, 'editor');
+    const { user, treeId, error } = await requireRole(request, 'branch');
     if (error) return error;
 
     const existing = await getOne(KEYS.people(treeId), params.id);
     if (!existing) return NextResponse.json({ error: 'Person not found.' }, { status: 404 });
+    if (!(await editCheck(user, treeId))(existing.id)) return outsideBranch();
 
     let fields;
     try {
@@ -44,11 +45,16 @@ export async function PATCH(request, { params }) {
 // Removes a person and their photo. Their children stay in the tree, linked to the other parent if there is one.
 export async function DELETE(request, { params }) {
   try {
-    const { treeId, error } = await requireRole(request, 'editor');
+    const { user, treeId, error } = await requireRole(request, 'branch');
     if (error) return error;
 
     const person = await getOne(KEYS.people(treeId), params.id);
     if (!person) return NextResponse.json({ error: 'Person not found.' }, { status: 404 });
+    if (!(await editCheck(user, treeId))(person.id)) return outsideBranch();
+    // A family editor can't remove the person their branch starts from (that would end their access).
+    if (user.role === 'branch' && person.id === user.branchId) {
+      return NextResponse.json({ error: 'Only an admin can delete the person your family branch starts from.' }, { status: 403 });
+    }
 
     const { people, unions } = await getTree(treeId);
     const tx = redis().multi();

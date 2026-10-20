@@ -13,7 +13,7 @@ function NameLink({ person, onSelect }) {
 }
 
 // Details of one person plus the edit actions (for editors).
-export default function PersonDialog({ person, tree, canEdit, onSelect, onOpenForm, onChanged, onClose }) {
+export default function PersonDialog({ person, tree, canEdit, canDelete = canEdit, canAddParent = canEdit, onSelect, onOpenForm, onChanged, onClose }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const byId = new Map(tree.people.map(p => [p.id, p]));
@@ -124,10 +124,10 @@ export default function PersonDialog({ person, tree, canEdit, onSelect, onOpenFo
           <button className={action} onClick={() => onOpenForm({ title: `Edit ${person.name}`, person })}><Pencil size={14} /> Edit / photo</button>
           <button className={action} onClick={() => onOpenForm({ title: `${spouseLabel} for ${person.name}`, relation: { type: 'spouse', personId: person.id }, defaults: { gender: opposite } })}><UserPlus size={14} /> {spouseLabel}</button>
           <button className={action} onClick={addChild}><UserPlus size={14} /> Add son / daughter</button>
-          {parents.length < 2 && (
+          {canAddParent && parents.length < 2 && (
             <button className={action} onClick={() => onOpenForm({ title: `Add parent of ${person.name}`, relation: { type: 'parent', childId: person.id }, defaults: parents[0] ? { gender: parents[0].gender === 'male' ? 'female' : 'male' } : {} })}><UserPlus size={14} /> Add father / mother</button>
           )}
-          <button disabled={busy} className={`${action} col-span-2 text-rose-600 border-rose-200 hover:bg-rose-50`} onClick={remove}><Trash2 size={14} /> Delete {person.name}</button>
+          {canDelete && <button disabled={busy} className={`${action} col-span-2 text-rose-600 border-rose-200 hover:bg-rose-50`} onClick={remove}><Trash2 size={14} /> Delete {person.name}</button>}
         </div>
       )}
     </Modal>

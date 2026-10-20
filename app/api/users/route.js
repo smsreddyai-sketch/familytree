@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { KEYS, getAll, redis } from '@/lib/db';
+import { KEYS, getAll, getOne, redis } from '@/lib/db';
 import { ROLES, isOwner, normalizeEmail, ownerEmails, requireRole } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -32,6 +32,11 @@ export async function POST(request) {
     if (isOwner(email)) return NextResponse.json({ error: 'The site owner is always an admin.' }, { status: 400 });
 
     const record = { email, role: body.role, addedBy: user.email, addedAt: Date.now() };
+    if (body.role === 'branch') {
+      const person = body.branchId ? await getOne(KEYS.people(treeId), body.branchId) : null;
+      if (!person) return NextResponse.json({ error: 'Please choose whose family this person may edit.' }, { status: 400 });
+      record.branchId = person.id;
+    }
     await redis().hset(KEYS.users(treeId), { [email]: record });
     return NextResponse.json({ success: true, user: record });
   } catch (error) {

@@ -9,6 +9,7 @@ import AccessManager from '@/components/AccessManager';
 import NewTreeDialog from '@/components/NewTreeDialog';
 import { api, setCurrentTree } from '@/lib/client';
 import { buildLayout } from '@/lib/treeLayout';
+import { branchMembers } from '@/lib/branch';
 import { buildSummary } from '@/lib/summary';
 
 const LAST_TREE_KEY = 'ft:last-tree';
@@ -75,6 +76,13 @@ export default function TreeApp({ me, onLoggedOut, onTreesChanged }) {
   const summary = useMemo(() => (tree && layout ? buildSummary(tree.people, layout) : null), [tree, layout]);
   const selected = tree?.people.find(p => p.id === selectedId);
 
+  // Family editors may only change their own branch; the server enforces the same rule.
+  const branchId = role === 'branch' ? current?.branchId : null;
+  const branch = useMemo(() => (branchId && tree ? branchMembers(tree.people, tree.unions, branchId) : null), [branchId, tree]);
+  const branchName = tree?.people.find(p => p.id === branchId)?.name;
+  const mayEdit = p => canEdit || !!branch?.has(p.id);
+  const mayDelete = p => canEdit || (!!branch?.has(p.id) && p.id !== branchId);
+
   const logout = async () => {
     await api('/api/auth/logout', { method: 'POST' }).catch(() => {});
     onLoggedOut();
@@ -122,7 +130,9 @@ export default function TreeApp({ me, onLoggedOut, onTreesChanged }) {
       <header className="flex flex-wrap items-center gap-2 justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-extrabold text-slate-900 truncate">{current.name}</h1>
-          <p className="text-xs text-slate-500">{me.email} · {me.isOwner ? 'site owner' : role}</p>
+          <p className="text-xs text-slate-500">
+            {me.email} · {me.isOwner ? 'site owner' : role === 'branch' ? `family editor${branchName ? ` – ${branchName}’s family` : ''}` : role}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {me.trees.length > 1 && (
@@ -164,8 +174,14 @@ export default function TreeApp({ me, onLoggedOut, onTreesChanged }) {
         </div>
       ) : (
         <>
-          <p className="text-xs text-slate-500">Click a person to see details{canEdit ? ', add family or edit (🗑 on a card deletes that person)' : ''}. ♥ married · ✕ divorced / separated</p>
-          <TreeView ref={treeRef} layout={layout} onSelect={setSelectedId} onDelete={canEdit ? deletePerson : undefined} />
+          <p className="text-xs text-slate-500">
+            Click a person to see details{canEdit ? ', add family or edit (🗑 on a card deletes that person)' : ''}.
+            {branch && (branchName
+              ? ` You can add and edit people in ${branchName}’s family (cards with 🗑, plus ${branchName}).`
+              : ' Your family branch is not set – ask the tree admin.')}
+            {' '}♥ married · ✕ divorced / separated
+          </p>
+          <TreeView ref={treeRef} layout={layout} onSelect={setSelectedId} onDelete={deletePerson} canDelete={mayDelete} />
         </>
       )}
 
@@ -173,7 +189,9 @@ export default function TreeApp({ me, onLoggedOut, onTreesChanged }) {
         <PersonDialog
           person={selected}
           tree={tree}
-          canEdit={canEdit}
+          canEdit={mayEdit(selected)}
+          canDelete={mayDelete(selected)}
+          canAddParent={canEdit || (mayEdit(selected) && selected.id !== branchId)}
           onSelect={setSelectedId}
           onOpenForm={setForm}
           onChanged={load}
@@ -194,6 +212,7 @@ export default function TreeApp({ me, onLoggedOut, onTreesChanged }) {
         <AccessManager
           me={me}
           tree={current}
+          people={tree?.people || []}
           onTreeChanged={onTreesChanged}
           onTreeDeleted={async () => { setPanel(null); await onTreesChanged(); }}
           onClose={() => setPanel(null)}

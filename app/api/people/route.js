@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 import { KEYS, getAll, getOne, redis } from '@/lib/db';
-import { requireRole } from '@/lib/auth';
+import { editCheck, outsideBranch, requireRole } from '@/lib/auth';
 import { personFields } from '@/lib/validate';
 
 const newUnion = partnerIds => ({ id: randomUUID(), partnerIds, status: 'married', createdAt: Date.now() });
@@ -15,10 +15,19 @@ const fail = (message, status = 400) => NextResponse.json({ error: message }, { 
 //   { type: 'parent', childId }              father / mother of an existing person
 export async function POST(request) {
   try {
-    const { treeId, error } = await requireRole(request, 'editor');
+    const { user, treeId, error } = await requireRole(request, 'branch');
     if (error) return error;
 
     const body = await request.json();
+    const relation = body.relation || { type: 'root' };
+
+    // A family editor can add children and spouses inside their branch, and parents of anyone
+    // in it except the person the branch starts from (those parents belong to the wider family).
+    if (user.role === 'branch') {
+      const mayEdit = await editCheck(user, treeId);
+      const anchor = { child: relation.parentId, spouse: relation.personId, parent: relation.childId }[relation.type];
+      if (!anchor || !mayEdit(anchor) || (relation.type === 'parent' && anchor === user.branchId)) return outsideBranch();
+    }
     let fields;
     try {
       fields = personFields(body, { requireName: true });
@@ -37,7 +46,6 @@ export async function POST(request) {
       updatedAt: now,
     };
 
-    const relation = body.relation || { type: 'root' };
     const tx = redis().multi();
 
     if (relation.type === 'child') {

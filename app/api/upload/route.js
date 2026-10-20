@@ -8,7 +8,7 @@ const MAX_BYTES = 4 * 1024 * 1024;
 
 export async function POST(request) {
   try {
-    const { error } = await requireRole(request, 'editor');
+    const { error } = await requireRole(request, 'branch');
     if (error) return error;
 
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
