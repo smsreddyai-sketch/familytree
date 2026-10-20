@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { KEYS, redis } from '@/lib/db';
-import { SESSION_COOKIE, SESSION_MAX_AGE, createSessionToken, hmac, normalizeEmail, roleFor, safeEqual } from '@/lib/auth';
+import { hmac, normalizeEmail, roleFor, safeEqual, setSessionCookie } from '@/lib/auth';
 
 const MAX_ATTEMPTS = 5;
 
@@ -28,15 +28,7 @@ export async function POST(request) {
     const role = await roleFor(email);
     if (!role) return NextResponse.json({ error: 'Your access has been removed.' }, { status: 403 });
 
-    const response = NextResponse.json({ email, role });
-    response.cookies.set(SESSION_COOKIE, createSessionToken(email), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: SESSION_MAX_AGE,
-    });
-    return response;
+    return setSessionCookie(NextResponse.json({ email, role }), email);
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

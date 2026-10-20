@@ -1,14 +1,34 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Mail } from 'lucide-react';
 import { api } from '@/lib/client';
 
 export default function Login({ onLoggedIn }) {
+  const [mode, setMode] = useState(null);
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [step, setStep] = useState('email');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
+
+  useEffect(() => {
+    api('/api/auth/mode').then(d => setMode(d.mode)).catch(err => setMessage({ type: 'error', text: err.message }));
+  }, []);
+
+  const passwordLogin = async e => {
+    e.preventDefault();
+    setBusy(true);
+    setMessage(null);
+    try {
+      await api('/api/auth/password', { method: 'POST', body: JSON.stringify({ email, password }) });
+      onLoggedIn();
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const requestCode = async e => {
     e?.preventDefault();
@@ -47,10 +67,20 @@ export default function Login({ onLoggedIn }) {
             <Mail size={22} />
           </div>
           <h1 className="text-2xl font-extrabold text-slate-900 mt-3">Family Tree</h1>
-          <p className="text-sm text-slate-500 mt-1">Private to our family. Log in with your email.</p>
+          <p className="text-sm text-slate-500 mt-1">Private to our family. Log in with your email{mode === 'password' ? ' and the family password' : ''}.</p>
         </div>
 
-        {step === 'email' ? (
+        {!mode ? (
+          !message && <p className="text-center text-sm text-slate-400">Loading…</p>
+        ) : mode === 'password' ? (
+          <form onSubmit={passwordLogin} className="space-y-3">
+            <input type="email" required autoFocus placeholder="your@email.com" autoComplete="username" className="p-3 border rounded-xl text-sm w-full" value={email} onChange={e => setEmail(e.target.value)} />
+            <input type="password" required placeholder="Family password" autoComplete="current-password" className="p-3 border rounded-xl text-sm w-full" value={password} onChange={e => setPassword(e.target.value)} />
+            <button disabled={busy} className="w-full bg-slate-900 text-white font-medium py-3 rounded-xl hover:bg-slate-800 disabled:bg-slate-400">
+              {busy ? 'Checking…' : 'Log in'}
+            </button>
+          </form>
+        ) : step === 'email' ? (
           <form onSubmit={requestCode} className="space-y-3">
             <input type="email" required autoFocus placeholder="your@email.com" className="p-3 border rounded-xl text-sm w-full" value={email} onChange={e => setEmail(e.target.value)} />
             <button disabled={busy} className="w-full bg-slate-900 text-white font-medium py-3 rounded-xl hover:bg-slate-800 disabled:bg-slate-400">
