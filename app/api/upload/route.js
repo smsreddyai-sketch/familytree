@@ -1,16 +1,16 @@
 import { put } from '@vercel/blob';
 import { NextResponse } from 'next/server';
-import { checkAdmin } from '@/lib/auth';
+import { requireRole } from '@/lib/auth';
 
 const ALLOWED_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 // Vercel rejects request bodies over 4.5 MB; the form shrinks photos well below this first.
 const MAX_BYTES = 4 * 1024 * 1024;
 
 export async function POST(request) {
-  const denied = checkAdmin(request);
-  if (denied) return denied;
-
   try {
+    const { error } = await requireRole(request, 'editor');
+    if (error) return error;
+
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
       return NextResponse.json({ error: 'Photo storage not connected. Add Blob in the Vercel Storage tab, then redeploy.' }, { status: 500 });
     }
