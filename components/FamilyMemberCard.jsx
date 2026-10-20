@@ -2,9 +2,23 @@
 import { useState } from 'react';
 import { Briefcase, MapPin, Share2, X } from 'lucide-react';
 
+// Shows the photo, or the person's initials if there is no photo or it fails to load.
+function Avatar({ member }) {
+  const [failed, setFailed] = useState(false);
+  if (member.imageUrl && !failed) {
+    return <img src={member.imageUrl} alt={member.name} className="w-full h-full object-cover" onError={() => setFailed(true)} />;
+  }
+  const initials = (member.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+  return (
+    <div className="w-full h-full flex items-center justify-center bg-indigo-100 text-indigo-700 font-bold text-xl">
+      {initials}
+    </div>
+  );
+}
+
 export default function FamilyMemberCard({ member }) {
   const [isOpen, setIsOpen] = useState(false);
-  const defaultAvatar = "https://unsplash.com";
+  const safeSocialLink = /^https?:\/\//i.test(member.socialMedia || '') ? member.socialMedia : '';
 
   return (
     <div className="relative group flex flex-col items-center p-4 bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-all duration-200 w-44">
@@ -13,7 +27,7 @@ export default function FamilyMemberCard({ member }) {
         className="w-20 h-20 rounded-full overflow-hidden border-4 border-indigo-500 cursor-pointer transition-transform duration-300 transform group-hover:scale-110 shadow-md bg-slate-100" 
         onClick={() => setIsOpen(true)}
       >
-        <img src={member.imageUrl || defaultAvatar} alt={member.name} className="w-full h-full object-cover" />
+        <Avatar member={member} />
       </div>
 
       {/* Main Details */}
@@ -37,7 +51,7 @@ export default function FamilyMemberCard({ member }) {
               <X size={18} />
             </button>
             <div className="w-24 h-24 rounded-full mx-auto overflow-hidden border-4 border-indigo-50 shadow-inner bg-slate-50">
-              <img src={member.imageUrl || defaultAvatar} alt={member.name} className="w-full h-full object-cover" />
+              <Avatar member={member} />
             </div>
             <h2 className="text-xl font-bold text-slate-800 mt-4">{member.name}</h2>
             {member.spouseName && <p className="text-sm text-rose-500 font-semibold mt-0.5">Married to {member.spouseName}</p>}
@@ -57,12 +71,12 @@ export default function FamilyMemberCard({ member }) {
                   <p className="font-medium text-slate-700">{member.location || 'Not Specified'}</p>
                 </div>
               </div>
-              {member.socialMedia && (
+              {safeSocialLink && (
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-sky-50 text-sky-600"><Share2 size={16} /></div>
                   <div>
                     <p className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Social Link</p>
-                    <a href={member.socialMedia} target="_blank" rel="noreferrer" className="font-medium text-sky-600 hover:underline">Open Profile</a>
+                    <a href={safeSocialLink} target="_blank" rel="noreferrer" className="font-medium text-sky-600 hover:underline">Open Profile</a>
                   </div>
                 </div>
               )}

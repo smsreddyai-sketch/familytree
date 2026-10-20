@@ -1,21 +1,35 @@
 import { put } from '@vercel/blob';
 import { NextResponse } from 'next/server';
+import { checkAdmin } from '@/lib/auth';
+
+const ALLOWED_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+// Vercel rejects request bodies over 4.5 MB; the form shrinks photos well below this first.
+const MAX_BYTES = 4 * 1024 * 1024;
 
 export async function POST(request) {
+  const denied = checkAdmin(request);
+  if (denied) return denied;
+
   try {
-    const { searchParams } = new URL(request.url);
-    const filename = searchParams.get('filename') || 'avatar.png';
-    
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      // Return a stock profile if credentials aren't deployed to Vercel dashboard yet
-      return NextResponse.json({ url: 'https://unsplash.com' });
+      return NextResponse.json({ error: 'Photo storage not connected. Add Blob in the Vercel Storage tab, then redeploy.' }, { status: 500 });
     }
 
-    const blob = await put(filename, request.body, {
+    const contentType = (request.headers.get('content-type') || '').split(';')[0];
+    const ext = ALLOWED_TYPES[contentType];
+    if (!ext) return NextResponse.json({ error: 'Only JPG, PNG or WebP photos are allowed.' }, { status: 400 });
+
+    const data = Buffer.from(await request.arrayBuffer());
+    if (data.length === 0) return NextResponse.json({ error: 'Empty file.' }, { status: 400 });
+    if (data.length > MAX_BYTES) return NextResponse.json({ error: 'Photo is too large (max 4 MB).' }, { status: 413 });
+
+    const blob = await put(`members/photo.${ext}`, data, {
       access: 'public',
+      contentType,
+      addRandomSuffix: true,
     });
 
-    return NextResponse.json(blob);
+    return NextResponse.json({ url: blob.url });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

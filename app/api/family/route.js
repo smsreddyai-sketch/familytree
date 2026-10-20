@@ -1,59 +1,76 @@
-import { kv } from '@vercel/kv';
 import { NextResponse } from 'next/server';
+import { getMembers, addMember } from '@/lib/db';
+import { checkAdmin } from '@/lib/auth';
 
-let fallbackDb = [
-  {
-    id: "g1",
-    name: "Grandfather Name",
-    generation: 1,
-    occupation: "Retired Engineer",
-    location: "Abu Dhabi, UAE",
-    socialMedia: "https://facebook.com",
-    imageUrl: "",
-    spouseName: "Grandmother Name"
-  }
-];
+// Without this, Next.js caches GET at build time and new members never show up.
+export const dynamic = 'force-dynamic';
 
-async function getDb() {
-  if (process.env.KV_REST_API_URL) {
-    const data = await kv.get('family_data');
-    return data || fallbackDb;
+const clean = (value, max = 100) => String(value || '').trim().slice(0, max);
+
+function cleanLink(value) {
+  const link = clean(value, 500);
+  if (!link) return '';
+  try {
+    const parsed = new URL(link);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.href : null;
+  } catch {
+    return null;
   }
-  return fallbackDb;
 }
 
-async function saveDb(data) {
-  if (process.env.KV_REST_API_URL) {
-    await kv.set('family_data', data);
-  } else {
-    fallbackDb = data;
+function cleanImageUrl(value) {
+  const link = clean(value, 500);
+  if (!link) return '';
+  try {
+    const parsed = new URL(link);
+    return parsed.protocol === 'https:' && parsed.hostname.endsWith('.blob.vercel-storage.com') ? parsed.href : null;
+  } catch {
+    return null;
   }
 }
 
 export async function GET() {
-  const data = await getDb();
-  return NextResponse.json(data);
+  try {
+    return NextResponse.json(await getMembers());
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }
 
 export async function POST(request) {
+  const denied = checkAdmin(request);
+  if (denied) return denied;
+
   try {
     const body = await request.json();
-    const data = await getDb();
-    
+
+    const name = clean(body.name);
+    if (!name) return NextResponse.json({ error: 'Name is required.' }, { status: 400 });
+
+    const socialMedia = cleanLink(body.socialMedia);
+    if (socialMedia === null) {
+      return NextResponse.json({ error: 'Social link must start with http:// or https://' }, { status: 400 });
+    }
+
+    const imageUrl = cleanImageUrl(body.imageUrl);
+    if (imageUrl === null) return NextResponse.json({ error: 'Invalid photo link.' }, { status: 400 });
+
+    const generation = Math.min(5, Math.max(1, parseInt(body.generation) || 1));
+
     const newMember = {
-      id: Date.now().toString(),
-      name: body.name || "Unknown",
-      generation: parseInt(body.generation) || 1,
-      occupation: body.occupation || "",
-      location: body.location || "",
-      socialMedia: body.socialMedia || "",
-      imageUrl: body.imageUrl || "",
-      spouseName: body.spouseName || ""
+      id: crypto.randomUUID(),
+      createdAt: Date.now(),
+      name,
+      generation,
+      occupation: clean(body.occupation),
+      location: clean(body.location),
+      socialMedia,
+      imageUrl,
+      spouseName: clean(body.spouseName)
     };
-    
-    data.push(newMember);
-    await saveDb(data);
-    
+
+    await addMember(newMember);
+
     return NextResponse.json({ success: true, member: newMember });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

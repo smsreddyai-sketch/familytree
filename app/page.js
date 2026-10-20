@@ -6,14 +6,17 @@ import AdminForm from '@/components/AdminForm';
 export default function Home() {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const fetchMembers = async () => {
     try {
-      const res = await fetch('/api/family');
+      const res = await fetch('/api/family', { cache: 'no-store' });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not load family members.');
       setMembers(data);
+      setError('');
     } catch (err) {
-      console.error(err);
+      setError(err.message || 'Could not load family members.');
     } finally {
       setLoading(false);
     }
@@ -39,6 +42,8 @@ export default function Home() {
       <section className="space-y-10 bg-slate-50/50 p-4 md:p-8 rounded-3xl border border-slate-100">
         {loading ? (
           <div className="text-center py-12 text-sm text-slate-400 font-medium">Loading generation branches...</div>
+        ) : error ? (
+          <div className="text-center py-12 text-sm text-rose-600 font-medium">{error}</div>
         ) : (
           gens.map(g => {
             const genMembers = members.filter(m => m.generation === g.num);
