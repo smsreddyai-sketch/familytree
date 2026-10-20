@@ -6,9 +6,9 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
-    const { error } = await requireRole(request, 'viewer');
+    const { treeId, error } = await requireRole(request, 'viewer');
     if (error) return error;
-    return NextResponse.json(await getTree());
+    return NextResponse.json(await getTree(treeId));
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

@@ -1,16 +1,31 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, Download, LogOut, Shield, UserPlus } from 'lucide-react';
+import { BarChart3, Download, LogOut, Plus, Shield, Trees, UserPlus } from 'lucide-react';
 import TreeView from '@/components/TreeView';
 import PersonDialog from '@/components/PersonDialog';
 import PersonForm from '@/components/PersonForm';
 import SummaryPanel from '@/components/SummaryPanel';
 import AccessManager from '@/components/AccessManager';
-import { api } from '@/lib/client';
+import NewTreeDialog from '@/components/NewTreeDialog';
+import { api, setCurrentTree } from '@/lib/client';
 import { buildLayout } from '@/lib/treeLayout';
 import { buildSummary } from '@/lib/summary';
 
-export default function TreeApp({ me, onLoggedOut }) {
+const LAST_TREE_KEY = 'ft:last-tree';
+
+function rememberedTree() {
+  try {
+    return localStorage.getItem(LAST_TREE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export default function TreeApp({ me, onLoggedOut, onTreesChanged }) {
+  const [treeId, setTreeId] = useState(() => {
+    const last = rememberedTree();
+    return me.trees.some(t => t.id === last) ? last : me.trees[0]?.id;
+  });
   const [tree, setTree] = useState(null);
   const [error, setError] = useState('');
   const [selectedId, setSelectedId] = useState(null);
@@ -19,11 +34,18 @@ export default function TreeApp({ me, onLoggedOut }) {
   const [exporting, setExporting] = useState(false);
   const treeRef = useRef(null);
 
-  const canEdit = me.role === 'editor' || me.role === 'admin';
+  // If the current tree was deleted or access to it was removed, fall back to the first one left.
+  const current = me.trees.find(t => t.id === treeId) || me.trees[0];
+  const role = current?.role;
+  const canEdit = role === 'editor' || role === 'admin';
 
+  const activeTree = useRef(null);
   const load = useCallback(async () => {
+    const id = activeTree.current;
     try {
-      setTree(await api('/api/tree'));
+      const data = await api('/api/tree');
+      if (id !== activeTree.current) return; // switched trees while loading
+      setTree(data);
       setError('');
     } catch (err) {
       if (err.status === 401) return onLoggedOut();
@@ -31,7 +53,23 @@ export default function TreeApp({ me, onLoggedOut }) {
     }
   }, [onLoggedOut]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!current) return;
+    activeTree.current = current.id;
+    setCurrentTree(current.id);
+    try {
+      localStorage.setItem(LAST_TREE_KEY, current.id);
+    } catch {}
+    setTree(null);
+    setSelectedId(null);
+    setForm(null);
+    load();
+  }, [current?.id, load]);
+
+  const switchTree = id => {
+    setPanel(null);
+    setTreeId(id);
+  };
 
   const layout = useMemo(() => (tree ? buildLayout(tree.people, tree.unions) : null), [tree]);
   const summary = useMemo(() => (tree && layout ? buildSummary(tree.people, layout) : null), [tree, layout]);
@@ -60,7 +98,7 @@ export default function TreeApp({ me, onLoggedOut }) {
     setExporting(true);
     try {
       const { exportTreePdf } = await import('@/lib/exportPdf');
-      await exportTreePdf(treeRef.current, { width: layout.width, height: layout.height, summary });
+      await exportTreePdf(treeRef.current, { width: layout.width, height: layout.height, summary, title: current.name });
     } catch (err) {
       alert(`Could not create the PDF: ${err.message}`);
     } finally {
@@ -70,14 +108,33 @@ export default function TreeApp({ me, onLoggedOut }) {
 
   const btn = 'flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50';
 
+  if (!current) {
+    return (
+      <main className="max-w-md mx-auto p-6 text-center space-y-3">
+        <p className="text-slate-500">You no longer have access to any family tree.</p>
+        <button className={`${btn} mx-auto`} onClick={logout}><LogOut size={15} /> Log out</button>
+      </main>
+    );
+  }
+
   return (
     <main className="max-w-[1600px] mx-auto p-3 md:p-5 space-y-3">
       <header className="flex flex-wrap items-center gap-2 justify-between">
-        <div>
-          <h1 className="text-2xl font-extrabold text-slate-900">Our Family Tree</h1>
-          <p className="text-xs text-slate-500">{me.email} · {me.role}</p>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-extrabold text-slate-900 truncate">{current.name}</h1>
+          <p className="text-xs text-slate-500">{me.email} · {me.isOwner ? 'site owner' : role}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {me.trees.length > 1 && (
+            <label className={`${btn} pr-1`}>
+              <Trees size={15} />
+              <span className="sr-only">Family tree</span>
+              <select className="bg-transparent outline-none max-w-[180px]" value={current.id} onChange={e => switchTree(e.target.value)}>
+                {me.trees.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </label>
+          )}
+          {me.isOwner && <button className={btn} onClick={() => setPanel('new-tree')}><Plus size={15} /> New family tree</button>}
           {canEdit && (
             <button className={btn} onClick={() => setForm({ title: 'Add person', relation: { type: 'root' } })}>
               <UserPlus size={15} /> Add person
@@ -87,7 +144,7 @@ export default function TreeApp({ me, onLoggedOut }) {
           <button className={btn} disabled={!layout?.nodes.length || exporting} onClick={downloadPdf}>
             <Download size={15} /> {exporting ? 'Creating PDF…' : 'Download PDF'}
           </button>
-          {me.role === 'admin' && <button className={btn} onClick={() => setPanel('access')}><Shield size={15} /> Access</button>}
+          {role === 'admin' && <button className={btn} onClick={() => setPanel('access')}><Shield size={15} /> Access &amp; settings</button>}
           <button className={btn} onClick={logout}><LogOut size={15} /> Log out</button>
         </div>
       </header>
@@ -133,7 +190,21 @@ export default function TreeApp({ me, onLoggedOut }) {
       )}
 
       {panel === 'summary' && <SummaryPanel summary={summary} onClose={() => setPanel(null)} />}
-      {panel === 'access' && <AccessManager me={me} onClose={() => setPanel(null)} />}
+      {panel === 'access' && (
+        <AccessManager
+          me={me}
+          tree={current}
+          onTreeChanged={onTreesChanged}
+          onTreeDeleted={async () => { setPanel(null); await onTreesChanged(); }}
+          onClose={() => setPanel(null)}
+        />
+      )}
+      {panel === 'new-tree' && (
+        <NewTreeDialog
+          onCreated={async t => { setPanel(null); await onTreesChanged(); switchTree(t.id); }}
+          onClose={() => setPanel(null)}
+        />
+      )}
     </main>
   );
 }

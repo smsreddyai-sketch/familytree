@@ -15,10 +15,10 @@ async function deletePhoto(url) {
 
 export async function PATCH(request, { params }) {
   try {
-    const { error } = await requireRole(request, 'editor');
+    const { treeId, error } = await requireRole(request, 'editor');
     if (error) return error;
 
-    const existing = await getOne(KEYS.people, params.id);
+    const existing = await getOne(KEYS.people(treeId), params.id);
     if (!existing) return NextResponse.json({ error: 'Person not found.' }, { status: 404 });
 
     let fields;
@@ -29,7 +29,7 @@ export async function PATCH(request, { params }) {
     }
 
     const person = { ...existing, ...fields, updatedAt: Date.now() };
-    await redis().hset(KEYS.people, { [person.id]: person });
+    await redis().hset(KEYS.people(treeId), { [person.id]: person });
 
     if ('photoUrl' in fields && existing.photoUrl && existing.photoUrl !== fields.photoUrl) {
       await deletePhoto(existing.photoUrl);
@@ -44,13 +44,13 @@ export async function PATCH(request, { params }) {
 // Removes a person and their photo. Their children stay in the tree, linked to the other parent if there is one.
 export async function DELETE(request, { params }) {
   try {
-    const { error } = await requireRole(request, 'editor');
+    const { treeId, error } = await requireRole(request, 'editor');
     if (error) return error;
 
-    const person = await getOne(KEYS.people, params.id);
+    const person = await getOne(KEYS.people(treeId), params.id);
     if (!person) return NextResponse.json({ error: 'Person not found.' }, { status: 404 });
 
-    const { people, unions } = await getTree();
+    const { people, unions } = await getTree(treeId);
     const tx = redis().multi();
 
     for (const union of unions.filter(u => u.partnerIds.includes(person.id))) {
@@ -58,16 +58,16 @@ export async function DELETE(request, { params }) {
       const children = people.filter(p => p.parentUnionId === union.id);
 
       if (remaining.length === 0 || (remaining.length === 1 && children.length === 0)) {
-        tx.hdel(KEYS.unions, union.id);
+        tx.hdel(KEYS.unions(treeId), union.id);
         for (const child of children) {
-          tx.hset(KEYS.people, { [child.id]: { ...child, parentUnionId: null } });
+          tx.hset(KEYS.people(treeId), { [child.id]: { ...child, parentUnionId: null } });
         }
       } else {
-        tx.hset(KEYS.unions, { [union.id]: { ...union, partnerIds: remaining } });
+        tx.hset(KEYS.unions(treeId), { [union.id]: { ...union, partnerIds: remaining } });
       }
     }
 
-    tx.hdel(KEYS.people, person.id);
+    tx.hdel(KEYS.people(treeId), person.id);
     await tx.exec();
     await deletePhoto(person.photoUrl);
 

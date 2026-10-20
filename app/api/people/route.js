@@ -15,7 +15,7 @@ const fail = (message, status = 400) => NextResponse.json({ error: message }, { 
 //   { type: 'parent', childId }              father / mother of an existing person
 export async function POST(request) {
   try {
-    const { error } = await requireRole(request, 'editor');
+    const { treeId, error } = await requireRole(request, 'editor');
     if (error) return error;
 
     const body = await request.json();
@@ -41,43 +41,43 @@ export async function POST(request) {
     const tx = redis().multi();
 
     if (relation.type === 'child') {
-      const parent = await getOne(KEYS.people, relation.parentId);
+      const parent = await getOne(KEYS.people(treeId), relation.parentId);
       if (!parent) return fail('Parent not found.', 404);
       let union = null;
       if (relation.unionId) {
-        union = await getOne(KEYS.unions, relation.unionId);
+        union = await getOne(KEYS.unions(treeId), relation.unionId);
         if (!union || !union.partnerIds.includes(parent.id)) return fail('Marriage not found.', 404);
       } else {
         union = newUnion([parent.id]);
-        tx.hset(KEYS.unions, { [union.id]: union });
+        tx.hset(KEYS.unions(treeId), { [union.id]: union });
       }
       person.parentUnionId = union.id;
     } else if (relation.type === 'spouse') {
-      const partner = await getOne(KEYS.people, relation.personId);
+      const partner = await getOne(KEYS.people(treeId), relation.personId);
       if (!partner) return fail('Person not found.', 404);
       // If children were added before the spouse, put the spouse into that existing one-parent family.
-      const unions = await getAll(KEYS.unions);
+      const unions = await getAll(KEYS.unions(treeId));
       const single = unions.find(u => u.partnerIds.length === 1 && u.partnerIds[0] === partner.id);
       const union = single ? { ...single, partnerIds: [partner.id, person.id], status: 'married' } : newUnion([partner.id, person.id]);
-      tx.hset(KEYS.unions, { [union.id]: union });
+      tx.hset(KEYS.unions(treeId), { [union.id]: union });
     } else if (relation.type === 'parent') {
-      const child = await getOne(KEYS.people, relation.childId);
+      const child = await getOne(KEYS.people(treeId), relation.childId);
       if (!child) return fail('Person not found.', 404);
       if (child.parentUnionId) {
-        const union = await getOne(KEYS.unions, child.parentUnionId);
+        const union = await getOne(KEYS.unions(treeId), child.parentUnionId);
         if (!union) return fail('Parents not found.', 404);
         if (union.partnerIds.length >= 2) return fail(`${child.name} already has two parents.`);
-        tx.hset(KEYS.unions, { [union.id]: { ...union, partnerIds: [...union.partnerIds, person.id] } });
+        tx.hset(KEYS.unions(treeId), { [union.id]: { ...union, partnerIds: [...union.partnerIds, person.id] } });
       } else {
         const union = newUnion([person.id]);
-        tx.hset(KEYS.unions, { [union.id]: union });
-        tx.hset(KEYS.people, { [child.id]: { ...child, parentUnionId: union.id, updatedAt: now } });
+        tx.hset(KEYS.unions(treeId), { [union.id]: union });
+        tx.hset(KEYS.people(treeId), { [child.id]: { ...child, parentUnionId: union.id, updatedAt: now } });
       }
     } else if (relation.type !== 'root') {
       return fail('Unknown relation.');
     }
 
-    tx.hset(KEYS.people, { [person.id]: person });
+    tx.hset(KEYS.people(treeId), { [person.id]: person });
     await tx.exec();
 
     return NextResponse.json({ success: true, person });

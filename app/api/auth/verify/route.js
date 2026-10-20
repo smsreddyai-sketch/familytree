@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { KEYS, redis } from '@/lib/db';
-import { hmac, normalizeEmail, roleFor, safeEqual, setSessionCookie } from '@/lib/auth';
+import { hasAccess, hmac, normalizeEmail, safeEqual, setSessionCookie } from '@/lib/auth';
 
 const MAX_ATTEMPTS = 5;
 
@@ -25,10 +25,9 @@ export async function POST(request) {
     }
 
     await redis().del(key);
-    const role = await roleFor(email);
-    if (!role) return NextResponse.json({ error: 'Your access has been removed.' }, { status: 403 });
+    if (!(await hasAccess(email))) return NextResponse.json({ error: 'Your access has been removed.' }, { status: 403 });
 
-    return setSessionCookie(NextResponse.json({ email, role }), email);
+    return setSessionCookie(NextResponse.json({ email }), email);
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

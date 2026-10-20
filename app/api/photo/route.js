@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireRole } from '@/lib/auth';
+import { requireLogin } from '@/lib/auth';
 import { isBlobUrl } from '@/lib/validate';
 
 export const dynamic = 'force-dynamic';
@@ -8,7 +8,8 @@ export const dynamic = 'force-dynamic';
 // and so the PDF export can draw them (same-origin images).
 export async function GET(request) {
   try {
-    const { error } = await requireRole(request, 'viewer');
+    // An <img> can't send the tree header, so any logged-in family member may load photos (URLs are unguessable).
+    const { error } = await requireLogin(request);
     if (error) return error;
 
     const src = new URL(request.url).searchParams.get('src') || '';

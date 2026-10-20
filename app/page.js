@@ -26,5 +26,5 @@ export default function Home() {
   if (error) return <p className="m-8 text-sm rounded-xl px-3 py-2 bg-rose-50 text-rose-700">{error}</p>;
   if (me === undefined) return <p className="text-center py-24 text-sm text-slate-400">Loading…</p>;
   if (!me) return <Login onLoggedIn={checkLogin} />;
-  return <TreeApp me={me} onLoggedOut={loggedOut} />;
+  return <TreeApp me={me} onLoggedOut={loggedOut} onTreesChanged={checkLogin} />;
 }
