@@ -18,7 +18,7 @@ function Avatar({ person }) {
   return <div className="w-full h-full flex items-center justify-center bg-indigo-50 text-indigo-700 font-bold text-2xl">{initials}</div>;
 }
 
-export default function PersonCard({ person, x, y, duplicate, onClick, onDelete }) {
+export default function PersonCard({ person, x, y, duplicate, color, parentLabel, onClick, onDelete }) {
   const late = person.isAlive === false;
   const years = yearsText(person);
 
@@ -27,12 +27,16 @@ export default function PersonCard({ person, x, y, duplicate, onClick, onDelete 
       <button
         type="button"
         onClick={onClick}
+        style={color ? { borderTop: `5px solid ${color}` } : undefined}
         className={`w-full h-full flex flex-col items-center text-center px-2 pt-3 pb-2 rounded-2xl border shadow-sm hover:shadow-md hover:-translate-y-0.5 transition ${late ? 'bg-slate-50 border-slate-200' : 'bg-white border-slate-100'}`}
       >
         <div className={`w-[92px] h-[92px] shrink-0 rounded-full overflow-hidden border-4 ${BORDER[person.gender] || BORDER.other}`}>
           <Avatar person={person} />
         </div>
         <p className="mt-2 font-bold text-slate-800 text-sm leading-tight line-clamp-2">{person.name}</p>
+        {parentLabel && (
+          <p className="text-[11px] font-medium mt-0.5 truncate max-w-full" style={{ color: color || '#475569' }}>{parentLabel}</p>
+        )}
         <p className="text-[11px] text-slate-500 mt-0.5 h-4">
           {late && <span className="font-semibold text-slate-600">Late </span>}
           {years}

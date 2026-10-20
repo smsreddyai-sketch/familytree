@@ -49,8 +49,9 @@ const TreeView = forwardRef(function TreeView({ layout, onSelect, onDelete }, tr
                 <line
                   key={i}
                   x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                  stroke={l.kind === 'marriage' ? (l.dashed ? '#f43f5e' : '#94a3b8') : '#64748b'}
-                  strokeWidth={2}
+                  stroke={l.kind === 'marriage' ? (l.dashed ? '#f43f5e' : '#94a3b8') : l.color || '#475569'}
+                  strokeWidth={l.kind === 'child' ? 3 : 2}
+                  strokeLinecap="round"
                   strokeDasharray={l.dashed ? '6 5' : undefined}
                 />
               ))}
@@ -64,7 +65,7 @@ const TreeView = forwardRef(function TreeView({ layout, onSelect, onDelete }, tr
               ))}
             </svg>
             {layout.nodes.map(n => (
-              <PersonCard key={n.key} person={n.person} x={n.x} y={n.y} duplicate={n.duplicate} onClick={() => onSelect(n.person.id)} onDelete={onDelete && (() => onDelete(n.person))} />
+              <PersonCard key={n.key} person={n.person} x={n.x} y={n.y} duplicate={n.duplicate} color={n.color} parentLabel={n.parentLabel} onClick={() => onSelect(n.person.id)} onDelete={onDelete && (() => onDelete(n.person))} />
             ))}
           </div>
         </div>
