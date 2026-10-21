@@ -1,8 +1,8 @@
 import './globals.css'
 
 export const metadata = {
-  title: 'Dynamic Family Tree',
-  description: 'Interactive and collaborative family tree',
+  title: 'SAMA Family Tree',
+  description: 'Private family tree for the SAMA family',
 }
 
 export default function RootLayout({ children }) {

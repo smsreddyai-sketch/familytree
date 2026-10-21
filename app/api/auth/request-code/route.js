@@ -1,13 +1,11 @@
 import { randomInt } from 'crypto';
 import { NextResponse } from 'next/server';
 import { KEYS, redis } from '@/lib/db';
-import { hasAccess, hmac, loginMode, normalizeEmail } from '@/lib/auth';
+import { hasAccess, hmac, normalizeEmail } from '@/lib/auth';
 import { sendLoginCode } from '@/lib/mail';
 
 export async function POST(request) {
   try {
-    if (loginMode() !== 'code') return NextResponse.json({ error: 'Email codes are turned off. Log in with the family password.' }, { status: 400 });
-
     const body = await request.json();
     const email = normalizeEmail(body.email);
     if (!email) return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 });

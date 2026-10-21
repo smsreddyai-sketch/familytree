@@ -54,10 +54,15 @@ export default function AccessManager({ me, tree, people, onTreeChanged, onTreeD
   const save = (userEmail, userRole, userBranchId) =>
     api('/api/users', { method: 'POST', body: JSON.stringify({ email: userEmail, role: userRole, branchId: userBranchId }) });
 
+  const [notice, setNotice] = useState('');
+
   const add = e => {
     e.preventDefault();
+    setNotice('');
     run(async () => {
-      await save(email, role, role === 'branch' ? branchId : undefined);
+      const result = await save(email, role, role === 'branch' ? branchId : undefined);
+      if (result.inviteError) throw new Error(result.inviteError);
+      if (result.invited) setNotice(`Invite email sent to ${email}. They log in with that email and a code – no password.`);
       setEmail('');
       setBranchId('');
     });
@@ -114,6 +119,7 @@ export default function AccessManager({ me, tree, people, onTreeChanged, onTreeD
         {Object.values(ROLE_HELP).map(h => <li key={h}>{h}</li>)}
       </ul>
 
+      {notice && !error && <p className="mt-3 text-sm rounded-xl px-3 py-2 bg-emerald-50 text-emerald-700">{notice}</p>}
       {error && <p className="mt-3 text-sm rounded-xl px-3 py-2 bg-rose-50 text-rose-700">{error}</p>}
 
       <div className="mt-5 divide-y divide-slate-100">

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { KEYS, getAll, getOne, redis } from '@/lib/db';
+import { KEYS, getAll, getOne, getTreeInfo, redis } from '@/lib/db';
+import { sendInvite } from '@/lib/mail';
 import { ROLES, isOwner, normalizeEmail, ownerEmails, requireRole } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -37,8 +38,21 @@ export async function POST(request) {
       if (!person) return NextResponse.json({ error: 'Please choose whose family this person may edit.' }, { status: 400 });
       record.branchId = person.id;
     }
+    const isNew = !(await getOne(KEYS.users(treeId), email));
     await redis().hset(KEYS.users(treeId), { [email]: record });
-    return NextResponse.json({ success: true, user: record });
+
+    // Tell newly added people how to log in. Access is saved even if the email fails.
+    let inviteError = null;
+    if (isNew) {
+      const tree = await getTreeInfo(treeId);
+      try {
+        await sendInvite(email, { treeName: tree?.name || 'family', invitedBy: user.email, siteUrl: new URL(request.url).origin });
+      } catch (e) {
+        console.error('Could not send invite', email, e);
+        inviteError = 'Access was added, but the invite email could not be sent. Please tell them to log in with this email.';
+      }
+    }
+    return NextResponse.json({ success: true, user: record, invited: isNew && !inviteError, inviteError });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
