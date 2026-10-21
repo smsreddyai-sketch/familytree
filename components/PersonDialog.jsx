@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Briefcase, MapPin, Pencil, Phone, Share2, Trash2, UserPlus } from 'lucide-react';
+import { Briefcase, MapPin, Pencil, Phone, Share2, Trash2, UserPlus, Users } from 'lucide-react';
 import Modal from '@/components/Modal';
 import { api, photoSrc, yearsText } from '@/lib/client';
 
@@ -14,7 +14,7 @@ function NameLink({ person, onSelect }) {
 }
 
 // Details of one person plus the edit actions (for editors).
-export default function PersonDialog({ person, tree, canEdit, canDelete = canEdit, canAddParent = canEdit, onSelect, onOpenForm, onChanged, onClose }) {
+export default function PersonDialog({ person, tree, canEdit, canDelete = canEdit, canAddParent = canEdit, onSelect, onOpenForm, onChanged, onClose, onShowFamily }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const byId = new Map(tree.people.map(p => [p.id, p]));
@@ -130,6 +130,12 @@ export default function PersonDialog({ person, tree, canEdit, canDelete = canEdi
           )}
         </div>
       </div>
+
+      {onShowFamily && children.length > 0 && (
+        <button className="mt-4 w-full flex items-center justify-center gap-1.5 text-sm font-medium px-3 py-2 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100" onClick={onShowFamily}>
+          <Users size={14} /> Show only {person.name}’s family
+        </button>
+      )}
 
       {error && <p className="mt-4 text-sm rounded-xl px-3 py-2 bg-rose-50 text-rose-700">{error}</p>}
 

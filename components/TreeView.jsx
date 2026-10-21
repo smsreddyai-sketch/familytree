@@ -45,6 +45,23 @@ const TreeView = forwardRef(function TreeView({ layout, onSelect, onDelete, canD
             style={{ width: layout.width, height: layout.height, transform: `scale(${zoom})`, transformOrigin: '0 0' }}
           >
             <svg className="absolute inset-0" width={layout.width} height={layout.height}>
+              {layout.rows.map(r => (
+                <g key={r.label}>
+                  <line x1={0} y1={r.y} x2={layout.width} y2={r.y} stroke="#e2e8f0" strokeWidth={1} strokeDasharray="2 8" />
+                  <rect x={8} y={r.y - 14} width={62} height={28} rx={14} fill="#f1f5f9" />
+                  <text x={39} y={r.y + 5} textAnchor="middle" fontSize="13" fontWeight="700" fill="#475569">{r.label}</text>
+                </g>
+              ))}
+              {layout.boxes.map(b => {
+                const maxChars = Math.max(8, Math.floor((b.width - 24) / 7));
+                const label = b.label.length > maxChars ? `${b.label.slice(0, maxChars - 1)}…` : b.label;
+                return (
+                  <g key={b.key}>
+                    <rect x={b.x} y={b.y} width={b.width} height={b.height} rx={18} fill={b.color} fillOpacity={0.07} stroke={b.color} strokeOpacity={0.55} strokeWidth={1.5} />
+                    <text x={b.x + 14} y={b.y + 16} fontSize="12" fontWeight="700" fill={b.color}>{label}</text>
+                  </g>
+                );
+              })}
               {layout.lines.map((l, i) => (
                 <line
                   key={i}

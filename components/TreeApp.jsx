@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, Download, LogOut, Plus, Shield, Trees, UserPlus } from 'lucide-react';
+import { BarChart3, Download, LogOut, Plus, Shield, Trees, UserPlus, Users } from 'lucide-react';
 import TreeView from '@/components/TreeView';
 import PersonDialog from '@/components/PersonDialog';
 import PersonForm from '@/components/PersonForm';
@@ -33,6 +33,7 @@ export default function TreeApp({ me, onLoggedOut, onTreesChanged }) {
   const [form, setForm] = useState(null);
   const [panel, setPanel] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [focusId, setFocusId] = useState(null); // show only this person's family
   const treeRef = useRef(null);
 
   // If the current tree was deleted or access to it was removed, fall back to the first one left.
@@ -64,6 +65,7 @@ export default function TreeApp({ me, onLoggedOut, onTreesChanged }) {
     setTree(null);
     setSelectedId(null);
     setForm(null);
+    setFocusId(null);
     load();
   }, [current?.id, load]);
 
@@ -72,8 +74,26 @@ export default function TreeApp({ me, onLoggedOut, onTreesChanged }) {
     setTreeId(id);
   };
 
-  const layout = useMemo(() => (tree ? buildLayout(tree.people, tree.unions) : null), [tree]);
-  const summary = useMemo(() => (tree && layout ? buildSummary(tree.people, layout) : null), [tree, layout]);
+  // The whole tree drives the summary; the view may be narrowed to one family.
+  const fullLayout = useMemo(() => (tree ? buildLayout(tree.people, tree.unions) : null), [tree]);
+  const focusPerson = tree?.people.find(p => p.id === focusId);
+  const layout = useMemo(
+    () => (focusPerson ? buildLayout(tree.people, tree.unions, { focusId: focusPerson.id, genOffset: fullLayout.depthOf.get(focusPerson.id) || 0 }) : fullLayout),
+    [focusPerson, tree, fullLayout]
+  );
+  const summary = useMemo(() => (tree && fullLayout ? buildSummary(tree.people, fullLayout) : null), [tree, fullLayout]);
+  // People worth focusing on: anyone with children, oldest generation first.
+  const familyHeads = useMemo(() => {
+    if (!tree) return [];
+    const parentIds = new Set(tree.unions.filter(u => tree.people.some(p => p.parentUnionId === u.id)).flatMap(u => u.partnerIds));
+    return tree.people
+      .filter(p => parentIds.has(p.id) && fullLayout.depthOf.has(p.id))
+      .sort((a, b) => fullLayout.depthOf.get(a.id) - fullLayout.depthOf.get(b.id) || a.name.localeCompare(b.name));
+  }, [tree, fullLayout]);
+  const showFamily = id => {
+    setSelectedId(null);
+    setFocusId(id || null);
+  };
   const selected = tree?.people.find(p => p.id === selectedId);
 
   // Family editors may only change their own branch; the server enforces the same rule.
@@ -106,7 +126,8 @@ export default function TreeApp({ me, onLoggedOut, onTreesChanged }) {
     setExporting(true);
     try {
       const { exportTreePdf } = await import('@/lib/exportPdf');
-      await exportTreePdf(treeRef.current, { width: layout.width, height: layout.height, summary, title: current.name });
+      const title = focusPerson ? `${current.name} – ${focusPerson.name}’s family` : current.name;
+      await exportTreePdf(treeRef.current, { width: layout.width, height: layout.height, summary, title });
     } catch (err) {
       alert(`Could not create the PDF: ${err.message}`);
     } finally {
@@ -181,7 +202,23 @@ export default function TreeApp({ me, onLoggedOut, onTreesChanged }) {
               : ' Your family branch is not set – ask the tree admin.')}
             {' '}♥ married · ✕ divorced / separated
           </p>
-          <TreeView ref={treeRef} layout={layout} onSelect={setSelectedId} onDelete={deletePerson} canDelete={mayDelete} />
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <Users size={16} className="text-indigo-500" /> Show:
+              <select className="p-2 border rounded-xl text-sm bg-white max-w-[260px]" value={focusPerson?.id || ''} onChange={e => showFamily(e.target.value)}>
+                <option value="">Whole tree (all families)</option>
+                {familyHeads.map(p => (
+                  <option key={p.id} value={p.id}>Gen {fullLayout.depthOf.get(p.id) + 1} · {p.name}’s family</option>
+                ))}
+              </select>
+            </label>
+            {focusPerson && (
+              <button className="text-sm font-medium px-3 py-2 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100" onClick={() => showFamily(null)}>
+                ✕ Show whole tree
+              </button>
+            )}
+          </div>
+          <TreeView key={focusPerson?.id || 'all'} ref={treeRef} layout={layout} onSelect={setSelectedId} onDelete={deletePerson} canDelete={mayDelete} />
         </>
       )}
 
@@ -196,6 +233,7 @@ export default function TreeApp({ me, onLoggedOut, onTreesChanged }) {
           onOpenForm={setForm}
           onChanged={load}
           onClose={() => setSelectedId(null)}
+          onShowFamily={selected.id === focusPerson?.id ? undefined : () => showFamily(selected.id)}
         />
       )}
 
