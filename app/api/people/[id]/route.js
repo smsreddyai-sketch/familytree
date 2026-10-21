@@ -2,6 +2,7 @@ import { del } from '@vercel/blob';
 import { NextResponse } from 'next/server';
 import { KEYS, getOne, getTree, redis } from '@/lib/db';
 import { editCheck, outsideBranch, requireRole } from '@/lib/auth';
+import { canSeePhone } from '@/lib/branch';
 import { isBlobUrl, personFields } from '@/lib/validate';
 
 async function deletePhoto(url) {
@@ -29,6 +30,14 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ error: e.message }, { status: 400 });
     }
 
+    // Someone who may not see this phone number may not change it or who can see it either.
+    // (A family editor only gets here for people in their branch, hence the one-person branch set.)
+    const seesPhone = !existing.phone || canSeePhone(existing, user.role, new Set([existing.id]));
+    if (!seesPhone) {
+      delete fields.phone;
+      delete fields.phoneVisibility;
+    }
+
     const person = { ...existing, ...fields, updatedAt: Date.now() };
     await redis().hset(KEYS.people(treeId), { [person.id]: person });
 
@@ -36,7 +45,7 @@ export async function PATCH(request, { params }) {
       await deletePhoto(existing.photoUrl);
     }
 
-    return NextResponse.json({ success: true, person });
+    return NextResponse.json({ success: true, person: seesPhone ? person : { ...person, phone: '', phoneHidden: true } });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

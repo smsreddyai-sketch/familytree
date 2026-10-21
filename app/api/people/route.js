@@ -39,7 +39,7 @@ export async function POST(request) {
     const person = {
       id: randomUUID(),
       gender: 'other', isAlive: true, birthYear: null, deathYear: null,
-      occupation: '', location: '', phone: '', socialMedia: '', notes: '', photoUrl: '',
+      occupation: '', location: '', phone: '', phoneVisibility: 'all', socialMedia: '', notes: '', photoUrl: '',
       ...fields,
       parentUnionId: null,
       createdAt: now,

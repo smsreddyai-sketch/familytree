@@ -3,10 +3,11 @@ import { useEffect, useState } from 'react';
 import Modal from '@/components/Modal';
 import { api, photoSrc, uploadPhoto } from '@/lib/client';
 
-const FIELDS = ['name', 'gender', 'isAlive', 'birthYear', 'deathYear', 'occupation', 'location', 'phone', 'socialMedia', 'notes'];
+const FIELDS = ['name', 'gender', 'isAlive', 'birthYear', 'deathYear', 'occupation', 'location', 'phone', 'phoneVisibility', 'socialMedia', 'notes'];
+const PHONE_FIELDS = ['phone', 'phoneVisibility'];
 
 function initialValues(person, defaults) {
-  const base = { name: '', gender: 'male', isAlive: true, birthYear: '', deathYear: '', occupation: '', location: '', phone: '', socialMedia: '', notes: '', ...defaults };
+  const base = { name: '', gender: 'male', isAlive: true, birthYear: '', deathYear: '', occupation: '', location: '', phone: '', phoneVisibility: 'all', socialMedia: '', notes: '', ...defaults };
   if (!person) return base;
   const values = { ...base };
   for (const f of FIELDS) values[f] = person[f] ?? base[f];
@@ -43,7 +44,8 @@ export default function PersonForm({ title, person, relation, defaults, unionOpt
     setError('');
     try {
       const body = {};
-      for (const f of FIELDS) body[f] = values[f];
+      // A number hidden from this user isn't in the form, so leave it untouched.
+      for (const f of FIELDS) if (!(person?.phoneHidden && PHONE_FIELDS.includes(f))) body[f] = values[f];
       if (file) body.photoUrl = await uploadPhoto(file);
       else if (removePhoto) body.photoUrl = '';
 
@@ -113,7 +115,18 @@ export default function PersonForm({ title, person, relation, defaults, unionOpt
 
         <input maxLength={100} placeholder="Occupation / Job" className={input} value={values.occupation} onChange={e => set('occupation', e.target.value)} />
         <input maxLength={100} placeholder="Lives in (City, State, Country)" className={input} value={values.location} onChange={e => set('location', e.target.value)} />
-        <input type="tel" inputMode="tel" maxLength={30} placeholder="Phone number (e.g. +91 98765 43210)" className={input} value={values.phone} onChange={e => set('phone', e.target.value)} />
+        {person?.phoneHidden ? (
+          <p className="text-xs text-slate-500 rounded-xl border border-dashed px-3 py-2.5">🔒 This phone number is private. Only people allowed by its privacy setting can see or change it.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input type="tel" inputMode="tel" maxLength={30} placeholder="Phone number (e.g. +91 98765 43210)" className={input} value={values.phone} onChange={e => set('phone', e.target.value)} />
+            <select aria-label="Who can see the phone number" className={`${input} bg-white`} value={values.phoneVisibility} onChange={e => set('phoneVisibility', e.target.value)}>
+              <option value="all">📖 Phone: everyone in tree</option>
+              <option value="family">👪 Phone: their family only</option>
+              <option value="admins">🔒 Phone: admins only</option>
+            </select>
+          </div>
+        )}
         <input type="url" placeholder="Social profile link (https://...)" className={input} value={values.socialMedia} onChange={e => set('socialMedia', e.target.value)} />
         <textarea maxLength={1000} rows={2} placeholder="Notes" className={input} value={values.notes} onChange={e => set('notes', e.target.value)} />
 

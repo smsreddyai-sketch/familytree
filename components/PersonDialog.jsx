@@ -5,6 +5,7 @@ import Modal from '@/components/Modal';
 import { api, photoSrc, yearsText } from '@/lib/client';
 
 const STATUS_LABEL = { married: 'Married', divorced: 'Divorced', separated: 'Separated' };
+const PHONE_PRIVACY = { family: '👪 family only', admins: '🔒 admins only' };
 
 function NameLink({ person, onSelect }) {
   return (
@@ -90,7 +91,11 @@ export default function PersonDialog({ person, tree, canEdit, canDelete = canEdi
             {person.phone.trim().startsWith('+') && (
               <a href={`https://wa.me/${person.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-xs text-emerald-600 hover:underline">WhatsApp</a>
             )}
+            {PHONE_PRIVACY[person.phoneVisibility] && <span className="text-[11px] text-slate-400">{PHONE_PRIVACY[person.phoneVisibility]}</span>}
           </p>
+        )}
+        {person.phoneHidden && (
+          <p className="flex items-center gap-2 text-slate-400"><Phone size={15} /> ••••• ••••• <span className="text-xs">🔒 private</span></p>
         )}
         {/^https?:\/\//i.test(person.socialMedia || '') && (
           <p className="flex items-center gap-2"><Share2 size={15} className="text-sky-500" />
