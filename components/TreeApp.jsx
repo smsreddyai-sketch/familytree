@@ -7,6 +7,7 @@ import PersonForm from '@/components/PersonForm';
 import SummaryPanel from '@/components/SummaryPanel';
 import AccessManager from '@/components/AccessManager';
 import NewTreeDialog from '@/components/NewTreeDialog';
+import FamilySearch from '@/components/FamilySearch';
 import { api, setCurrentTree } from '@/lib/client';
 import { buildLayout } from '@/lib/treeLayout';
 import { branchMembers } from '@/lib/branch';
@@ -90,6 +91,14 @@ export default function TreeApp({ me, onLoggedOut, onTreesChanged }) {
       .filter(p => parentIds.has(p.id) && fullLayout.depthOf.has(p.id))
       .sort((a, b) => fullLayout.depthOf.get(a.id) - fullLayout.depthOf.get(b.id) || a.name.localeCompare(b.name));
   }, [tree, fullLayout]);
+  // Everyone in the tree, for the name search ("S/o Ramesh" tells two people with the same name apart).
+  const searchable = useMemo(() => {
+    if (!fullLayout) return [];
+    const seen = new Set();
+    return fullLayout.nodes
+      .filter(n => !seen.has(n.person.id) && seen.add(n.person.id))
+      .map(n => ({ id: n.person.id, name: n.person.name, gen: (fullLayout.depthOf.get(n.person.id) || 0) + 1, detail: n.parentLabel }));
+  }, [fullLayout]);
   const showFamily = id => {
     setSelectedId(null);
     setFocusId(id || null);
@@ -203,10 +212,14 @@ export default function TreeApp({ me, onLoggedOut, onTreesChanged }) {
             {' '}♥ married · ✕ divorced / separated
           </p>
           <div className="flex flex-wrap items-center gap-2">
+            <FamilySearch key={focusPerson ? 'focused' : 'all'} people={searchable} onPick={showFamily} />
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
               <Users size={16} className="text-indigo-500" /> Show:
               <select className="p-2 border rounded-xl text-sm bg-white max-w-[260px]" value={focusPerson?.id || ''} onChange={e => showFamily(e.target.value)}>
                 <option value="">Whole tree (all families)</option>
+                {focusPerson && !familyHeads.some(p => p.id === focusPerson.id) && (
+                  <option value={focusPerson.id}>{focusPerson.name}</option>
+                )}
                 {familyHeads.map(p => (
                   <option key={p.id} value={p.id}>Gen {fullLayout.depthOf.get(p.id) + 1} · {p.name}’s family</option>
                 ))}
