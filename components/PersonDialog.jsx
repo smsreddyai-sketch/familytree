@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Briefcase, MapPin, Pencil, Share2, Trash2, UserPlus } from 'lucide-react';
+import { Briefcase, MapPin, Pencil, Phone, Share2, Trash2, UserPlus } from 'lucide-react';
 import Modal from '@/components/Modal';
 import { api, photoSrc, yearsText } from '@/lib/client';
 
@@ -83,6 +83,15 @@ export default function PersonDialog({ person, tree, canEdit, canDelete = canEdi
       <div className="mt-5 space-y-3 text-sm text-slate-700">
         {person.occupation && <p className="flex items-center gap-2"><Briefcase size={15} className="text-indigo-500" /> {person.occupation}</p>}
         {person.location && <p className="flex items-center gap-2"><MapPin size={15} className="text-emerald-500" /> {person.location}</p>}
+        {person.phone && (
+          <p className="flex items-center gap-2"><Phone size={15} className="text-violet-500" />
+            <a href={`tel:${person.phone.replace(/[^\d+]/g, '')}`} className="text-violet-600 hover:underline">{person.phone}</a>
+            {/* wa.me needs the country code, so only offer it for numbers written as +<country> ... */}
+            {person.phone.trim().startsWith('+') && (
+              <a href={`https://wa.me/${person.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="text-xs text-emerald-600 hover:underline">WhatsApp</a>
+            )}
+          </p>
+        )}
         {/^https?:\/\//i.test(person.socialMedia || '') && (
           <p className="flex items-center gap-2"><Share2 size={15} className="text-sky-500" />
             <a href={person.socialMedia} target="_blank" rel="noreferrer" className="text-sky-600 hover:underline">Open profile</a>

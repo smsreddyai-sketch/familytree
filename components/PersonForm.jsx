@@ -3,10 +3,10 @@ import { useEffect, useState } from 'react';
 import Modal from '@/components/Modal';
 import { api, photoSrc, uploadPhoto } from '@/lib/client';
 
-const FIELDS = ['name', 'gender', 'isAlive', 'birthYear', 'deathYear', 'occupation', 'location', 'socialMedia', 'notes'];
+const FIELDS = ['name', 'gender', 'isAlive', 'birthYear', 'deathYear', 'occupation', 'location', 'phone', 'socialMedia', 'notes'];
 
 function initialValues(person, defaults) {
-  const base = { name: '', gender: 'male', isAlive: true, birthYear: '', deathYear: '', occupation: '', location: '', socialMedia: '', notes: '', ...defaults };
+  const base = { name: '', gender: 'male', isAlive: true, birthYear: '', deathYear: '', occupation: '', location: '', phone: '', socialMedia: '', notes: '', ...defaults };
   if (!person) return base;
   const values = { ...base };
   for (const f of FIELDS) values[f] = person[f] ?? base[f];
@@ -113,6 +113,7 @@ export default function PersonForm({ title, person, relation, defaults, unionOpt
 
         <input maxLength={100} placeholder="Occupation / Job" className={input} value={values.occupation} onChange={e => set('occupation', e.target.value)} />
         <input maxLength={100} placeholder="Lives in (City, State, Country)" className={input} value={values.location} onChange={e => set('location', e.target.value)} />
+        <input type="tel" inputMode="tel" maxLength={30} placeholder="Phone number (e.g. +91 98765 43210)" className={input} value={values.phone} onChange={e => set('phone', e.target.value)} />
         <input type="url" placeholder="Social profile link (https://...)" className={input} value={values.socialMedia} onChange={e => set('socialMedia', e.target.value)} />
         <textarea maxLength={1000} rows={2} placeholder="Notes" className={input} value={values.notes} onChange={e => set('notes', e.target.value)} />
 
