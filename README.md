@@ -14,7 +14,7 @@ summary and PDF download. Built with Next.js for Vercel.
 
 Emails in `OWNER_EMAILS` are always admins. Admins add other family emails from the **Access** button.
 
-## Vercel setup
+### Vercel setup
 
 Storage (Storage tab): **Upstash Redis** (people, marriages, access list) and **Blob** (photos).
 
